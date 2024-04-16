@@ -21,12 +21,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class DecisionEngineController {
 
     private final DecisionEngine decisionEngine;
-    private final DecisionResponse response;
 
     @Autowired
-    DecisionEngineController(DecisionEngine decisionEngine, DecisionResponse response) {
+    DecisionEngineController(DecisionEngine decisionEngine) {
         this.decisionEngine = decisionEngine;
-        this.response = response;
     }
 
     /**
@@ -45,31 +43,15 @@ public class DecisionEngineController {
     @PostMapping("/decision")
     public ResponseEntity<DecisionResponse> requestDecision(@RequestBody DecisionRequest request) {
         try {
-            Decision decision = decisionEngine.
-                    calculateApprovedLoan(request.getPersonalCode(), request.getLoanAmount(), request.getLoanPeriod());
-            response.setLoanAmount(decision.getLoanAmount());
-            response.setLoanPeriod(decision.getLoanPeriod());
-            response.setErrorMessage(decision.getErrorMessage());
-
-            return ResponseEntity.ok(response);
+            Decision decision = decisionEngine.calculateApprovedLoan(
+                    request.getPersonalCode(), request.getLoanAmount(), request.getLoanPeriod());
+            return ResponseEntity.ok(new DecisionResponse(decision.getLoanAmount(), decision.getLoanPeriod(), decision.getErrorMessage()));
         } catch (InvalidPersonalCodeException | InvalidLoanAmountException | InvalidLoanPeriodException e) {
-            response.setLoanAmount(null);
-            response.setLoanPeriod(null);
-            response.setErrorMessage(e.getMessage());
-
-            return ResponseEntity.badRequest().body(response);
+            return ResponseEntity.badRequest().body(new DecisionResponse(null, null, e.getMessage()));
         } catch (NoValidLoanException e) {
-            response.setLoanAmount(null);
-            response.setLoanPeriod(null);
-            response.setErrorMessage(e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new DecisionResponse(null, null, e.getMessage()));
         } catch (Exception e) {
-            response.setLoanAmount(null);
-            response.setLoanPeriod(null);
-            response.setErrorMessage("An unexpected error occurred");
-
-            return ResponseEntity.internalServerError().body(response);
+            return ResponseEntity.internalServerError().body(new DecisionResponse(null, null, "An unexpected error occurred"));
         }
     }
 }
