@@ -1,9 +1,6 @@
 package ee.taltech.inbankbackend.endpoint;
 
-import ee.taltech.inbankbackend.exceptions.InvalidLoanAmountException;
-import ee.taltech.inbankbackend.exceptions.InvalidLoanPeriodException;
-import ee.taltech.inbankbackend.exceptions.InvalidPersonalCodeException;
-import ee.taltech.inbankbackend.exceptions.NoValidLoanException;
+import ee.taltech.inbankbackend.exceptions.*;
 import ee.taltech.inbankbackend.service.Decision;
 import ee.taltech.inbankbackend.service.DecisionEngine;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,10 +40,9 @@ public class DecisionEngineController {
     @PostMapping("/decision")
     public ResponseEntity<DecisionResponse> requestDecision(@RequestBody DecisionRequest request) {
         try {
-            Decision decision = decisionEngine.calculateApprovedLoan(
-                    request.getPersonalCode(), request.getLoanAmount(), request.getLoanPeriod());
+            Decision decision = decisionEngine.calculateApprovedLoan(request.getPersonalCode(), request.getLoanAmount(), request.getLoanPeriod());
             return ResponseEntity.ok(new DecisionResponse(decision.getLoanAmount(), decision.getLoanPeriod(), decision.getErrorMessage()));
-        } catch (InvalidPersonalCodeException | InvalidLoanAmountException | InvalidLoanPeriodException e) {
+        } catch (InvalidPersonalCodeException | InvalidLoanAmountException | InvalidLoanPeriodException | InvalidAgeException e) {
             return ResponseEntity.badRequest().body(new DecisionResponse(null, null, e.getMessage()));
         } catch (NoValidLoanException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new DecisionResponse(null, null, e.getMessage()));

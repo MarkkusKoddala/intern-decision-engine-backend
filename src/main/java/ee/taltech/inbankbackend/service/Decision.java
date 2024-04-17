@@ -2,6 +2,7 @@ package ee.taltech.inbankbackend.service;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * Holds the response data of the REST endpoint.

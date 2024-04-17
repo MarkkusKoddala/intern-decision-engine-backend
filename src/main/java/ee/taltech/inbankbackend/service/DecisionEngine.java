@@ -2,11 +2,15 @@ package ee.taltech.inbankbackend.service;
 
 import com.github.vladislavgoltjajev.personalcode.locale.estonia.EstonianPersonalCodeValidator;
 import ee.taltech.inbankbackend.config.DecisionEngineConstants;
-import ee.taltech.inbankbackend.exceptions.InvalidLoanAmountException;
-import ee.taltech.inbankbackend.exceptions.InvalidLoanPeriodException;
-import ee.taltech.inbankbackend.exceptions.InvalidPersonalCodeException;
-import ee.taltech.inbankbackend.exceptions.NoValidLoanException;
+import ee.taltech.inbankbackend.exceptions.*;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.format.DateTimeFormatter;
+
+import static ee.taltech.inbankbackend.config.DecisionEngineConstants.MAX_AGE;
+import static ee.taltech.inbankbackend.config.DecisionEngineConstants.MIN_AGE;
 
 /**
  * A service class that provides a method for calculating an approved loan amount and period for a customer.
@@ -37,7 +41,7 @@ public class DecisionEngine {
      */
     public Decision calculateApprovedLoan(String personalCode, Long loanAmount, int loanPeriod)
             throws InvalidPersonalCodeException, InvalidLoanAmountException, InvalidLoanPeriodException,
-            NoValidLoanException {
+            NoValidLoanException, InvalidAgeException {
         try {
             verifyInputs(personalCode, loanAmount, loanPeriod);
         } catch (Exception e) {
@@ -109,7 +113,7 @@ public class DecisionEngine {
      * @throws InvalidLoanPeriodException If the requested loan period is invalid
      */
     private void verifyInputs(String personalCode, Long loanAmount, int loanPeriod)
-            throws InvalidPersonalCodeException, InvalidLoanAmountException, InvalidLoanPeriodException {
+            throws InvalidPersonalCodeException, InvalidLoanAmountException, InvalidLoanPeriodException, InvalidAgeException {
 
         if (!validator.isValid(personalCode)) {
             throw new InvalidPersonalCodeException("Invalid personal ID code!");
@@ -122,6 +126,65 @@ public class DecisionEngine {
                 || !(loanPeriod <= DecisionEngineConstants.MAXIMUM_LOAN_PERIOD)) {
             throw new InvalidLoanPeriodException("Invalid loan period!");
         }
-
+        if (!isEligibleByAge(personalCode)) {
+            throw new InvalidAgeException("Invalid age!");
+        }
     }
+
+    /**
+     * Determines if a customer is eligible based on their age derived from their personal code.
+     * This method parses the birthdate from the personal code, calculates the age, and checks it against defined minimum and maximum age limits.
+     *
+     * @param personalCode The personal code of the customer, from which the birthdate is extracted.
+     * @return true if the customer's age is within the eligible range, false otherwise.
+     */
+    private boolean isEligibleByAge(String personalCode) {
+        LocalDate birthdate = parseBirthdateFromId(personalCode);
+        System.out.println(birthdate);
+        Period age = Period.between(birthdate, LocalDate.now());
+        return age.getYears() >= MIN_AGE && age.getYears() <= MAX_AGE;
+    }
+
+    /**
+     * Parses the birthdate from the given personal code by determining the century and extracting the date.
+     * The method first extracts the identifier to determine the century, parses the year, month, and day,
+     * and then adjusts the birth year based on the century before returning the complete birthdate.
+     *
+     * @param personalCode The personal code from which to extract the birthdate.
+     * @return A LocalDate representing the customer's birthdate.
+     */
+    public LocalDate parseBirthdateFromId(String personalCode) {
+        int identifier = Integer.parseInt(personalCode.substring(0, 1));
+        String birthdateStr = personalCode.substring(1, 7);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("uuMMdd");
+
+        LocalDate birthdate = LocalDate.parse(birthdateStr, formatter);
+
+        int centuryAdjustment = determineCenturyAdjustment(identifier, birthdate.getYear());
+        birthdate = birthdate.minusYears(centuryAdjustment);
+
+        return birthdate;
+    }
+
+    /**
+     * Determines the number of years to adjust the parsed year based on the century identifier.
+     * The adjustment corrects for century changes as the identifier signifies different centuries.
+     *
+     * @param identifier The first digit of the personal code, indicating the century and sometimes gender.
+     * @param yearParsed The initially parsed year, which may need adjustment to reflect the correct century.
+     * @return The number of years to subtract from the parsed year to obtain the correct birth year.
+     * @throws IllegalArgumentException if the identifier does not correspond to a valid century marker.
+     */
+    private int determineCenturyAdjustment(int identifier, int yearParsed) {
+        if (identifier >= 1 && identifier <= 2) {
+            return (yearParsed >= 2000) ? 200 : 100;
+        } else if (identifier >= 3 && identifier <= 4) {
+            return (yearParsed >= 2000) ? 100 : 0;
+        } else if (identifier >= 5 && identifier <= 6) {
+            return 0;
+        } else {
+            throw new IllegalArgumentException("Invalid identifier for century in Estonian personal ID code!");
+        }
+    }
+
 }

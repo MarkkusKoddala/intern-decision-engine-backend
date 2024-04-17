@@ -7,6 +7,10 @@ In the DecisionEngineController, the DecisionResponse is autowired as a single i
 This approach is problematic as it could lead to data leakage, especially in a multithreaded environment. 
 A more secure and reliable solution would be to instantiate a new DecisionResponse for every request, ensuring data integrity and isolation between requests.
 
+### Decision engine does not return maximum possible loan amount
+
+The current implementation of the decision engine fails to always return the maximum possible loan amount that the engine could approve based on the customer's profile and credit history. Instead, it only considers the requested amount, potentially underestimating what the customer might be eligible for. This could mislead customers about their borrowing capabilities and affect their decision-making.
+
 ### Overloaded calculateApprovedLoan method
 The calculateApprovedLoan method in the DecisionEngine class is responsible for too many tasks, 
 which affects readability and maintainability. Refactoring this method to delegate specific tasks to helper 
